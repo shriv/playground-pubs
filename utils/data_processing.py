@@ -1,6 +1,21 @@
 import pandas as pd
 import requests
 import os
+import ast
+
+
+########################
+## GENERAL PROCESSING ##
+########################
+
+def convert_list_string(list_string):
+    """
+    Converts a string list to a list of strings
+    u'[a, b, b]' --> ['a', 'b', 'c']
+    Needed to expand the nodes columns in ways 
+    """
+    list_unicode_string =  unicode(list_string, "utf-8")
+    return ast.literal_eval(list_unicode_string)
 
 
 ##############
@@ -79,6 +94,60 @@ def get_osm_data(compactOverpassQLstring, osm_bbox):
             else:
                 pass
         osm_df = pd.DataFrame(osmdata)
-        osm_df.to_csv(osm_filename)
+        # osm_df.to_csv(osm_filename, header=True, index=False, encoding='utf-8')
         
     return osm_df
+
+
+
+##########################
+## GEOPANDAS PROCESSING ##
+##########################
+
+def extend_ways_to_node_view(osmdf):
+    """
+    """
+    
+    osmdf_ways = osmdf.query('type == "way"')[['id', 'nodes', 'type']]
+    osmdf_nodes = osmdf.query('type == "node"')[['id', 'lat', 'lon']]
+    osmdf_ways['nodes'] = osmdf_ways['nodes'].astype(str)
+    osmdf_ways['nodes'] = osmdf_ways['nodes'].apply(convert_list_string)
+    
+    osmdf_ways_clean = (osmdf_ways
+                        .set_index(['id', 'type'])['nodes']
+                        .apply(pd.Series)
+                        .stack()
+                        .reset_index())
+
+    osmdf_ways_clean.columns = ['way_id', 'type', 'sample_num', 'nodes']
+    # osmdf_nodes['id'] = osmdf_nodes['id'].astype(str)
+    # osmdf_ways_clean['nodes'] = osmdf_ways_clean['nodes'].astype(str) 
+    
+    osmdf_clean = pd.merge(osmdf_ways_clean,
+                           osmdf_nodes,
+                           left_on='nodes',
+                           right_on='id').drop(['nodes'], axis=1)
+    return osmdf_clean
+    
+
+def coords_df_to_geopandas_points(osmdf, crs={'init': u'epsg:4167'}):
+    """
+    """
+    
+    osmdf['Coordinates'] = list(zip(osmdf.lon, osmdf.lat))
+    osmdf['Coordinates'] = osmdf['Coordinates'].apply(Point)
+    points_osmdf_clean = geopandas.GeoDataFrame(osmdf, geometry='Coordinates', crs=crs)
+    return points_osmdf_clean
+
+
+def geopandas_points_to_poly(points_df, crs={'init': u'epsg:4167'}):
+    """
+    """
+    
+    points_df['geometry'] = points_df['Coordinates'].apply(lambda x: x.coords[0])
+    poly_osmdf_clean = (points_df
+                        .groupby('way_id')['geometry']
+                        .apply(lambda x: Polygon(x.tolist()))
+                        .reset_index())
+    poly_osmdf_clean = geopandas.GeoDataFrame(poly_osmdf_clean, crs=crs)
+    return poly_osmdf_clean
