@@ -2,6 +2,8 @@ import pandas as pd
 import requests
 import os
 import ast
+from shapely.geometry import Point
+import geopandas
 
 
 ########################
@@ -151,3 +153,23 @@ def geopandas_points_to_poly(points_df, crs={'init': u'epsg:4167'}):
                         .reset_index())
     poly_osmdf_clean = geopandas.GeoDataFrame(poly_osmdf_clean, crs=crs)
     return poly_osmdf_clean
+
+
+def getXY(pt):
+    return (pt.x, pt.y)
+
+
+def lat_lon_to_geopandas(df):
+    """
+    """
+    # Convert intersection points to Geopandas
+    geometry = [Point(xy) for xy in zip(df.lon, df.lat)]
+    gpd_df = geopandas.GeoDataFrame(pd.DataFrame({'geometry': geometry}), crs=None, geometry=geometry)
+    gpd_df = gpd_df[['geometry']]
+    return gpd_df
+
+def geopandas_to_lat_lon(gpd_df, column):
+    x,y = [list(t) for t in zip(*map(getXY, gpd_df[column]))]
+    df = pd.DataFrame({'lon': x, 'lat': y})
+    return df
+
