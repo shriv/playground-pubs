@@ -40,7 +40,7 @@ def get_pandana_network(osm_bbox, impedance=5000):
                                              osm_bbox[1],
                                              osm_bbox[2],
                                              osm_bbox[3], 
-                                             network_type='drive')
+                                             network_type='walk')
 
 
         # identify nodes that are connected to fewer than some threshold
@@ -86,7 +86,7 @@ def plot_accessibility(network, accessibility,
     Plotting accessibiity heatmap
     """
 
-    title = 'Driving distance (m) to nearest {} around {}'.format(amenity_type,
+    title = 'Walking distance (m) to nearest {} around {}'.format(amenity_type,
                                                                   place_name)
  
     # network aggregation plots are the same as regular scatter plots,
